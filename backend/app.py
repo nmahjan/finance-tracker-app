@@ -8,7 +8,7 @@ from datetime import datetime
 
 from config import get_config
 from models import db
-from routes import auth_bp, transactions_bp, budgets_bp, bills_bp, plaid_bp, analytics_bp
+from routes import auth_bp, accounts_bp, transactions_bp, budgets_bp, bills_bp, plaid_bp, analytics_bp
 from services.realtime import init_socketio
 from services.celery_tasks import celery
 
@@ -57,7 +57,7 @@ def create_app(config_name=None):
 def register_blueprints(app):
     """Register API blueprints."""
     app.register_blueprint(auth_bp, url_prefix='/api/v1/auth')
-    # app.register_blueprint(accounts_bp, url_prefix='/api/v1/accounts')
+    app.register_blueprint(accounts_bp, url_prefix='/api/v1/accounts')
     app.register_blueprint(transactions_bp, url_prefix='/api/v1/transactions')
     app.register_blueprint(budgets_bp, url_prefix='/api/v1/budgets')
     app.register_blueprint(bills_bp, url_prefix='/api/v1/bills')
