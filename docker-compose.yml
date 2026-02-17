@@ -1,0 +1,105 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: finance-tracker-db
+    environment:
+      POSTGRES_DB: finance_tracker
+      POSTGRES_USER: tracker_user
+      POSTGRES_PASSWORD: tracker_password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tracker_user"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis Cache & Message Broker
+  redis:
+    image: redis:7-alpine
+    container_name: finance-tracker-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Flask Backend
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: finance-tracker-api
+    environment:
+      FLASK_ENV: production
+      DATABASE_URL: postgresql://tracker_user:tracker_password@postgres:5432/finance_tracker
+      REDIS_URL: redis://redis:6379/0
+      JWT_SECRET_KEY: your-production-secret-key-change-this
+      PLAID_CLIENT_ID: ${PLAID_CLIENT_ID}
+      PLAID_SECRET: ${PLAID_SECRET}
+      PLAID_ENV: sandbox
+    ports:
+      - "5000:5000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+    command: gunicorn --worker-class eventlet -w 1 --bind 0.0.0.0:5000 app:app
+
+  # Celery Worker
+  celery_worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: finance-tracker-worker
+    environment:
+      FLASK_ENV: production
+      DATABASE_URL: postgresql://tracker_user:tracker_password@postgres:5432/finance_tracker
+      REDIS_URL: redis://redis:6379/0
+      PLAID_CLIENT_ID: ${PLAID_CLIENT_ID}
+      PLAID_SECRET: ${PLAID_SECRET}
+    depends_on:
+      - postgres
+      - redis
+      - backend
+    volumes:
+      - ./backend:/app
+    command: celery -A services.celery_tasks worker -l info
+
+  # Celery Beat (Scheduler)
+  celery_beat:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: finance-tracker-scheduler
+    environment:
+      FLASK_ENV: production
+      DATABASE_URL: postgresql://tracker_user:tracker_password@postgres:5432/finance_tracker
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      - postgres
+      - redis
+      - backend
+    volumes:
+      - ./backend:/app
+    command: celery -A services.celery_tasks beat -l info
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  default:
+    name: finance-tracker-network
