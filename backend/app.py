@@ -57,7 +57,7 @@ def create_app(config_name=None):
 def register_blueprints(app):
     """Register API blueprints."""
     app.register_blueprint(auth_bp, url_prefix='/api/v1/auth')
-    app.register_blueprint(accounts_bp, url_prefix='/api/v1/accounts')
+    app.register_blueprint(accounts_bp, url_prefix='/api/v1')
     app.register_blueprint(transactions_bp, url_prefix='/api/v1/transactions')
     app.register_blueprint(budgets_bp, url_prefix='/api/v1/budgets')
     app.register_blueprint(bills_bp, url_prefix='/api/v1/bills')
